@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+html, body { height: 100%; }
+body {
+  background: theme(colors.canvas);
+  color: theme(colors.ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Numeración tabular para métricas y tablas */
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* Scrollbars discretas */
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: #d6d5cf; border-radius: 9px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Entrada suave de contenido al cambiar de pantalla */
+.fade-in { animation: fade-in .2s ease; }
+@keyframes fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* Drawer móvil */
+.slide-in { animation: slide-in .22s cubic-bezier(.2,.7,.3,1); }
+@keyframes slide-in { from { transform: translateX(-16px); opacity: .4; } to { transform: none; opacity: 1; } }
