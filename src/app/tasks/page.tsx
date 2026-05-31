@@ -1,26 +1,25 @@
 import { PageHeader } from "@/components/ui/PageHeader";
-import { PlaceholderPanel } from "@/components/ui/PlaceholderPanel";
 import { Button } from "@/components/ui/Button";
-import { CheckSquare, Columns3, Zap, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import { orgScope } from "@/data/mock-db";
+import { resolveDefaultOrg } from "@/lib/tenant";
+import { TasksView } from "@/components/tasks/TasksView";
+
+export const dynamic = "force-dynamic";
 
 export default function TasksPage() {
+  const scope = orgScope(resolveDefaultOrg());
+  // Responsables disponibles (usuarios de la organización) para el filtro.
+  const assignees = [
+    { value: "", label: "Todos" },
+    ...scope.users().map((u) => ({ value: u.id, label: u.name })),
+  ];
   return (
-    <>
-      <PageHeader
-        eyebrow="Ejecución"
-        title="Tareas"
-        description="Las acciones pendientes del equipo durante el onboarding, generadas automáticamente por las reglas de First30."
-        action={<Button variant="ghost" icon={Plus}>Nueva tarea</Button>}
-      />
-      <PlaceholderPanel
-        summary="Un tablero con las tareas agrupadas por momento (hoy, esta semana, pendientes y completadas), cada una vinculada a un socio y a un coach responsable."
-        features={[
-          { icon: Columns3, title: "Tablero por momento", description: "Hoy, esta semana, pendientes y completadas, de un vistazo." },
-          { icon: Zap, title: "Tareas automáticas", description: "Enviar mensaje post 1ª clase, contactar sin 2ª visita, asignar coach…" },
-          { icon: CheckSquare, title: "Completar al instante", description: "Marcar una tarea como hecha con un clic, con feedback visual." },
-        ]}
-        note="Próxima fase: generar tareas desde eventos del onboarding."
-      />
-    </>
+    <div className="fade-in">
+      <PageHeader eyebrow="Ejecución" title="Tareas"
+        description="Acciones del equipo durante el onboarding. Filtra por prioridad o responsable y complétalas con un clic."
+        action={<Button variant="ghost" icon={Plus}>Nueva tarea</Button>} />
+      <TasksView assignees={assignees} />
+    </div>
   );
 }

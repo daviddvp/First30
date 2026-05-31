@@ -19,7 +19,7 @@ export function Sidebar() {
           </p>
         </div>
         <div className="mt-3 flex items-center gap-2.5 px-1">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#eceae4] text-[12px] font-semibold text-[#55534c]">CN</span>
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-avatar-bg text-[12px] font-semibold text-avatar-fg">CN</span>
           <div className="min-w-0">
             <div className="truncate text-[12.5px] font-semibold">Carla Núñez</div>
             <div className="text-[11px] text-faint">Owner · CrossBox Centro</div>

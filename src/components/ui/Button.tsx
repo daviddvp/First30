@@ -4,8 +4,8 @@ import type { LucideIcon } from "lucide-react";
 type Variant = "primary" | "soft" | "ghost";
 const VARIANT: Record<Variant, string> = {
   primary: "bg-accent text-white hover:bg-accent-strong",
-  soft: "bg-accent-soft text-accent-strong hover:bg-[#dcecdf]",
-  ghost: "bg-surface text-ink border border-border-strong hover:bg-[#faf9f7]",
+  soft: "bg-accent-soft text-accent-strong hover:bg-accent-soft",
+  ghost: "bg-surface text-ink border border-border-strong hover:bg-subtle",
 };
 
 export function Button({

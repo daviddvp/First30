@@ -1,24 +1,24 @@
 import { PageHeader } from "@/components/ui/PageHeader";
-import { PlaceholderPanel } from "@/components/ui/PlaceholderPanel";
-import { AlertTriangle, Activity, MessageSquare, Layers } from "lucide-react";
+import { orgScope } from "@/data/mock-db";
+import { resolveDefaultOrg } from "@/lib/tenant";
+import { RiskView } from "@/components/risk/RiskView";
+
+export const dynamic = "force-dynamic";
 
 export default function RiskPage() {
+  const scope = orgScope(resolveDefaultOrg());
+  const memberNames: Record<string, string> = {};
+  scope.members().forEach((m) => { memberNames[m.id] = m.fullName; });
+
+  // Motivos únicos de las alertas abiertas, para el filtro por motivo.
+  const reasons = Array.from(new Set(scope.openAlerts().map((a) => a.reason)));
+  const memberReasons = [{ value: "", label: "Todos" }, ...reasons.map((r) => ({ value: r, label: r.length > 28 ? r.slice(0, 28) + "…" : r }))];
+
   return (
-    <>
-      <PageHeader
-        eyebrow="Retención"
-        title="Socios en riesgo"
-        description="El radar de abandono temprano: quién está a punto de perderse en su primer mes y qué hacer al respecto."
-      />
-      <PlaceholderPanel
-        summary="Esta pantalla agrupará a los socios por nivel de riesgo y explicará el motivo de cada alerta, con una acción y un mensaje sugerido listos para usar."
-        features={[
-          { icon: Layers, title: "Agrupado por riesgo", description: "Alto, medio y bajo, para priorizar dónde actúa primero el equipo." },
-          { icon: AlertTriangle, title: "Motivo de la alerta", description: "No volvió tras la 1ª clase, sin 2ª visita en 7 días, sin coach, etc." },
-          { icon: MessageSquare, title: "Acción y mensaje", description: "Cada alerta llevará una acción sugerida y una plantilla copiable." },
-        ]}
-        note="Próxima fase: derivar las alertas desde el motor de reglas, no escribirlas a mano."
-      />
-    </>
+    <div className="fade-in">
+      <PageHeader eyebrow="Retención" title="Socios en riesgo"
+        description="Radar de abandono temprano. Resuelve o pospón alertas; el cambio se refleja al instante." />
+      <RiskView memberNames={memberNames} memberReasons={memberReasons} />
+    </div>
   );
 }

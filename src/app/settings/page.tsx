@@ -1,15 +1,19 @@
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PlaceholderPanel } from "@/components/ui/PlaceholderPanel";
+import { AppearanceSetting } from "@/components/theme/appearance-setting";
 import { SlidersHorizontal, CalendarDays, ListChecks } from "lucide-react";
 
 export default function SettingsPage() {
   return (
-    <>
+    <div className="fade-in">
       <PageHeader
         eyebrow="Ajustes"
         title="Configuración"
         description="Las reglas de onboarding de tu box: días clave, umbrales de alerta, plantillas, coaches y branding."
       />
+      <div className="mb-4">
+        <AppearanceSetting />
+      </div>
       <PlaceholderPanel
         summary="Desde aquí se configurará cómo funciona el onboarding: qué días son hito, cuándo se crea una alerta y qué plantillas usa el equipo."
         features={[
@@ -19,6 +23,6 @@ export default function SettingsPage() {
         ]}
         note="Próxima fase: persistir la configuración y aplicarla al motor de reglas."
       />
-    </>
+    </div>
   );
 }

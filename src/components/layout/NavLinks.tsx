@@ -30,7 +30,7 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             {item.badge && (
               <span className={cn(
                 "tnum rounded-full px-1.5 py-0.5 text-[11px] font-bold",
-                item.tone === "danger" ? "bg-danger-soft text-danger-strong" : "bg-[#f0efeb] text-muted",
+                item.tone === "danger" ? "bg-danger-soft text-danger-strong" : "bg-subtle-2 text-muted",
               )}>
                 {item.badge}
               </span>

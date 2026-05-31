@@ -12,7 +12,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border-strong bg-surface px-6 py-14 text-center">
-      <span className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#f0efeb] text-muted">
+      <span className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-subtle-2 text-muted">
         <Icon size={20} strokeWidth={2} />
       </span>
       <h3 className="text-[15px] font-bold">{title}</h3>

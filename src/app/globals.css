@@ -2,28 +2,92 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+/* ============================================================================
+   Tokens de tema First30. Modo claro = estética SaaS premium actual.
+   Modo oscuro = zinc profundo elegante (no negro puro), acentos desaturados,
+   badges con contraste suficiente. Se activa con la clase .dark en <html>.
+   ========================================================================== */
+:root {
+  color-scheme: light;
+  --canvas: #f6f6f4;
+  --surface: #ffffff;
+  --sidebar: #fbfbf9;
+  --border: #e8e7e3;
+  --border-strong: #dcdbd6;
+  --ink: #191917;
+  --muted: #6c6b64;
+  --faint: #9b9a92;
+
+  --subtle: #fafaf8;      /* hovers, zebra suave */
+  --subtle-2: #f0efeb;    /* chips neutros, contadores */
+  --avatar-bg: #eceae4;
+  --avatar-fg: #55534c;
+
+  --accent: #1f7a4d;
+  --accent-soft: #e8f3ec;
+  --accent-strong: #16623d;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --danger-strong: #b4322f;
+  --warn: #d97706;
+  --warn-soft: #fdf2e3;
+  --warn-strong: #9a5b12;
+  --info: #5b7894;
+  --info-soft: #eef2f6;
+  --info-strong: #3a5168;
+}
+
+.dark {
+  color-scheme: dark;
+  --canvas: #131312;       /* fondo general: zinc muy profundo, no negro puro */
+  --surface: #1c1c1b;      /* cards */
+  --sidebar: #181817;
+  --border: #2c2b29;
+  --border-strong: #3a3935;
+  --ink: #f4f3f0;          /* texto principal: zinc casi blanco, no #fff */
+  --muted: #a3a199;        /* texto secundario */
+  --faint: #74726b;
+
+  --subtle: #232220;       /* hovers/zebra en oscuro */
+  --subtle-2: #2a2926;     /* chips neutros */
+  --avatar-bg: #34332f;
+  --avatar-fg: #c9c7bf;
+
+  /* Acentos ligeramente desaturados + "soft" como fondos translúcidos legibles */
+  --accent: #3a9c6a;
+  --accent-soft: #16321f;
+  --accent-strong: #7fc79e;
+  --danger: #e5524f;
+  --danger-soft: #3a1f1e;
+  --danger-strong: #f1908d;
+  --warn: #e0962f;
+  --warn-soft: #36280f;
+  --warn-strong: #e9b774;
+  --info: #7e9bb6;
+  --info-soft: #1e2730;
+  --info-strong: #aac1d6;
+}
 
 html, body { height: 100%; }
 body {
-  background: theme(colors.canvas);
-  color: theme(colors.ink);
+  background: var(--canvas);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* Numeración tabular para métricas y tablas */
 .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
-/* Scrollbars discretas */
 *::-webkit-scrollbar { width: 9px; height: 9px; }
-*::-webkit-scrollbar-thumb { background: #d6d5cf; border-radius: 9px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 9px; border: 2px solid transparent; background-clip: padding-box; }
 *::-webkit-scrollbar-track { background: transparent; }
 
-/* Entrada suave de contenido al cambiar de pantalla */
 .fade-in { animation: fade-in .2s ease; }
 @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-/* Drawer móvil */
 .slide-in { animation: slide-in .22s cubic-bezier(.2,.7,.3,1); }
 @keyframes slide-in { from { transform: translateX(-16px); opacity: .4; } to { transform: none; opacity: 1; } }
+
+/* Toast */
+.toast-in { animation: toast-in .24s cubic-bezier(.2,.7,.3,1); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }

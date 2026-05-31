@@ -1,6 +1,7 @@
 "use client";
 
 import { Menu, Search } from "lucide-react";
+import { AppearanceSelector } from "@/components/theme/appearance-selector";
 
 /** Barra superior: en móvil incluye el botón de menú. */
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
@@ -14,7 +15,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         >
           <Menu size={18} />
         </button>
-        <div className="hidden w-[260px] items-center gap-2 rounded-lg bg-[#f3f2ef] px-3 py-1.5 sm:flex">
+        <div className="hidden w-[260px] items-center gap-2 rounded-lg bg-subtle-2 px-3 py-1.5 sm:flex">
           <Search size={15} className="text-faint" />
           <input
             placeholder="Buscar socio, coach o tarea…"
@@ -23,8 +24,10 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
         </div>
       </div>
       <div className="flex items-center gap-3">
+        {/* Acceso rápido a la apariencia: compacto, sin robar protagonismo */}
+        <div className="hidden sm:block"><AppearanceSelector compact /></div>
         <span className="hidden text-[12.5px] font-medium text-muted sm:inline">CrossBox Centro</span>
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#eceae4] text-[12px] font-semibold text-[#55534c]">CN</span>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-avatar-bg text-[12px] font-semibold text-avatar-fg">CN</span>
       </div>
     </header>
   );
