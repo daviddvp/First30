@@ -1,0 +1,452 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// First30 — Prisma Schema
+// Multi-tenant: todas las entidades tenant-scoped tienen organizationId.
+// IDs: cuid() por defecto. Compatible con los IDs mock del seed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  owner
+  manager
+  coach
+}
+
+enum MemberStatus {
+  in_progress
+  at_risk
+  activated
+  no_coach
+  completed
+  churned
+}
+
+enum RiskLevel {
+  high
+  medium
+  low
+}
+
+enum MemberLevel {
+  beginner
+  intermediate
+  advanced
+}
+
+enum Priority {
+  low
+  medium
+  high
+}
+
+enum TaskStatus {
+  today
+  this_week
+  pending
+  completed
+  cancelled
+}
+
+enum CheckInStatus {
+  pending
+  sent
+  responded
+  missed
+}
+
+enum AlertStatus {
+  open
+  snoozed
+  resolved
+}
+
+enum MessageChannel {
+  whatsapp
+  email
+  sms
+}
+
+enum MessageStatus {
+  draft
+  copied
+  sent
+  failed
+}
+
+// ─── Organizations ────────────────────────────────────────────────────────────
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  timezone      String   @default("Europe/Madrid")
+  brandingColor String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  users            User[]
+  coachProfiles    CoachProfile[]
+  members          Member[]
+  attendances      Attendance[]
+  checkIns         CheckIn[]
+  tasks            Task[]
+  riskAlerts       RiskAlert[]
+  messageTemplates MessageTemplate[]
+  messageLogs      MessageLog[]
+  onboardingRules  OnboardingRule[]
+  weeklyReports    WeeklyReport[]
+  auditLogs        AuditLog[]
+  notes            Note[]
+  settings         OrgSettings?
+
+  @@map("organizations")
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(cuid())
+  // supabaseUid vincula auth.uid() de Supabase con el usuario interno.
+  // Es nullable para permitir usuarios creados antes de tener Supabase configurado.
+  supabaseUid    String?  @unique
+  organizationId String
+  name           String
+  email          String   @unique
+  role           UserRole
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  coachProfile CoachProfile?
+  tasks        Task[]        @relation("TaskAssignee")
+  messageLogs  MessageLog[]
+  auditLogs    AuditLog[]
+
+  @@index([organizationId])
+  @@index([supabaseUid])
+  @@map("users")
+}
+
+// ─── CoachProfiles ────────────────────────────────────────────────────────────
+
+model CoachProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  organizationId      String
+  specialties         String[]
+  maxActiveNewMembers Int      @default(10)
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      Member[]
+  checkIns     CheckIn[]
+  attendances  Attendance[]
+
+  @@index([organizationId])
+  @@map("coach_profiles")
+}
+
+// ─── Members ──────────────────────────────────────────────────────────────────
+
+model Member {
+  id                    String       @id @default(cuid())
+  organizationId        String
+  fullName              String
+  email                 String?
+  phone                 String?
+  joinDate              DateTime
+  onboardingDay         Int          @default(1)
+  status                MemberStatus @default(in_progress)
+  riskLevel             RiskLevel    @default(low)
+  riskReason            String?
+  mainGoal              String?
+  level                 MemberLevel  @default(beginner)
+  limitations           String?
+  fears                 String?
+  acquisitionSource     String?
+  assignedCoachId       String?
+  lastAttendanceAt      DateTime?
+  nextRecommendedAction String?
+  activationScore       Int          @default(0)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  coach        CoachProfile? @relation(fields: [assignedCoachId], references: [id])
+  attendances  Attendance[]
+  checkIns     CheckIn[]
+  tasks        Task[]
+  riskAlerts   RiskAlert[]
+  messageLogs  MessageLog[]
+  notes        Note[]
+
+  @@index([organizationId])
+  @@index([assignedCoachId])
+  @@index([status])
+  @@index([riskLevel])
+  @@index([organizationId, status])
+  @@index([organizationId, riskLevel])
+  @@map("members")
+}
+
+// ─── Attendances ──────────────────────────────────────────────────────────────
+
+model Attendance {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  classDate      DateTime
+  classType      String?
+  coachId        String?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  coach        CoachProfile? @relation(fields: [coachId], references: [id])
+
+  @@index([memberId])
+  @@index([organizationId])
+  @@map("attendances")
+}
+
+// ─── CheckIns ─────────────────────────────────────────────────────────────────
+
+model CheckIn {
+  id             String        @id @default(cuid())
+  organizationId String
+  memberId       String
+  coachId        String?
+  day            Int
+  status         CheckInStatus @default(pending)
+  sentiment      String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  coach        CoachProfile? @relation(fields: [coachId], references: [id])
+
+  @@index([memberId])
+  @@index([organizationId])
+  @@map("check_ins")
+}
+
+// ─── Tasks ────────────────────────────────────────────────────────────────────
+
+model Task {
+  id               String     @id @default(cuid())
+  organizationId   String
+  memberId         String?
+  assignedToUserId String?
+  title            String
+  description      String?
+  priority         Priority   @default(medium)
+  status           TaskStatus @default(pending)
+  dueDate          DateTime?
+  completedAt      DateTime?
+  // ruleKey se usa para deduplicación en el job de reglas.
+  // Formato: {orgId}:{ruleType}:{memberId} — permite idempotencia.
+  ruleKey          String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member?      @relation(fields: [memberId], references: [id])
+  assignedTo   User?        @relation("TaskAssignee", fields: [assignedToUserId], references: [id])
+
+  @@index([organizationId])
+  @@index([assignedToUserId])
+  @@index([status])
+  @@index([memberId])
+  @@index([ruleKey])
+  @@index([organizationId, status])
+  @@map("tasks")
+}
+
+// ─── RiskAlerts ───────────────────────────────────────────────────────────────
+
+model RiskAlert {
+  id                      String      @id @default(cuid())
+  organizationId          String
+  memberId                String
+  riskLevel               RiskLevel   @default(medium)
+  reason                  String
+  daysSinceLastAttendance Int?
+  suggestedAction         String?
+  suggestedMessage        String?
+  priority                Priority    @default(medium)
+  status                  AlertStatus @default(open)
+  resolvedAt              DateTime?
+  resolvedNote            String?
+  snoozeUntil             DateTime?
+  // ruleKey se usa para deduplicación en el job de reglas.
+  // Formato: {orgId}:{ruleType}:{memberId} — permite idempotencia.
+  ruleKey                 String?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([memberId])
+  @@index([status])
+  @@index([ruleKey])
+  @@index([organizationId, status])
+  @@map("risk_alerts")
+}
+
+// ─── MessageTemplates ─────────────────────────────────────────────────────────
+
+model MessageTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  category       String
+  title          String
+  body           String
+  variables      String[]
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messageLogs  MessageLog[]
+
+  @@index([organizationId])
+  @@index([organizationId, category])
+  @@map("message_templates")
+}
+
+// ─── MessageLogs ──────────────────────────────────────────────────────────────
+
+model MessageLog {
+  id             String         @id @default(cuid())
+  organizationId String
+  memberId       String
+  templateId     String?
+  sentByUserId   String?
+  channel        MessageChannel @default(whatsapp)
+  body           String
+  status         MessageStatus  @default(draft)
+  copiedAt       DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime       @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  template     MessageTemplate? @relation(fields: [templateId], references: [id])
+  sentBy       User?            @relation(fields: [sentByUserId], references: [id])
+
+  @@index([organizationId])
+  @@index([memberId])
+  @@map("message_logs")
+}
+
+// ─── OnboardingRules ──────────────────────────────────────────────────────────
+
+model OnboardingRule {
+  id             String   @id @default(cuid())
+  organizationId String
+  type           String
+  enabled        Boolean  @default(true)
+  thresholdValue Int?
+  action         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type])
+  @@index([organizationId])
+  @@map("onboarding_rules")
+}
+
+// ─── WeeklyReports ────────────────────────────────────────────────────────────
+
+model WeeklyReport {
+  id             String   @id @default(cuid())
+  organizationId String
+  weekStart      DateTime
+  weekEnd        DateTime
+  metricsJson    Json
+  summary        String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, weekStart])
+  @@map("weekly_reports")
+}
+
+// ─── AuditLogs ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  entityType     String
+  entityId       String
+  action         String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorUserId], references: [id])
+
+  @@index([organizationId])
+  @@index([entityType, entityId])
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}
+
+// ─── Notes ────────────────────────────────────────────────────────────────────
+
+model Note {
+  id             String   @id @default(cuid())
+  organizationId String
+  memberId       String
+  authorId       String?
+  content        String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([organizationId])
+  @@map("notes")
+}
+
+// ─── OrgSettings ──────────────────────────────────────────────────────────────
+
+model OrgSettings {
+  id                    String   @id @default(cuid())
+  organizationId        String   @unique
+  riskNoReturnDays      Int      @default(7)
+  riskLowAttendanceDays Int      @default(14)
+  riskLowAttendanceMin  Int      @default(2)
+  notificationsEnabled  Boolean  @default(true)
+  reminderDays          Int[]    @default([7, 14, 21, 30])
+  timezone              String   @default("Europe/Madrid")
+  updatedAt             DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("org_settings")
+}

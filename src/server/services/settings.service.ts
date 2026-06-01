@@ -1,43 +1,54 @@
 import { settingsRepository } from "../repositories/settings.repository";
 import { auditRepository } from "../repositories/audit.repository";
+import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { assertCan } from "@/lib/permissions";
 import type { RequestContext } from "@/lib/auth";
-import type { Organization, OnboardingRule, OnboardingRuleType } from "@/types";
+import type { OnboardingRule, OnboardingRuleType } from "@/types";
 import type { z } from "zod";
 import type { updateSettingsSchema, riskRuleSchema } from "../schemas/settings.schema";
 
 export interface SettingsView {
-  organization: Organization;
+  orgSettings: import("../repositories/settings.repository").OrgSettingsData;
   rules: OnboardingRule[];
 }
 
 export const settingsService = {
-  get(ctx: RequestContext): SettingsView {
+  async get(ctx: RequestContext): Promise<SettingsView> {
     assertCan(ctx.user, "settings.read");
-    const organization = settingsRepository.organization(ctx.organizationId);
-    if (!organization) throw new NotFoundError("Organización");
-    return { organization, rules: settingsRepository.rules(ctx.organizationId) };
+    const [orgSettings, rules] = await Promise.all([
+      settingsRepository.getOrgSettings(ctx.organizationId),
+      settingsRepository.rules(ctx.organizationId),
+    ]);
+    const org = await prisma.organization.findUnique({ where: { id: ctx.organizationId } });
+    if (!org) throw new NotFoundError("Organización");
+    const settings = orgSettings ?? {
+      organizationId: ctx.organizationId,
+      riskNoReturnDays: 7, riskLowAttendanceDays: 14, riskLowAttendanceMin: 2,
+      notificationsEnabled: true, reminderDays: [7, 14, 21, 30], timezone: org.timezone,
+    };
+    return { orgSettings: settings, rules };
   },
 
-  update(ctx: RequestContext, patch: z.infer<typeof updateSettingsSchema>): Organization {
-    assertCan(ctx.user, "settings.update"); // solo owner
-    const updated = settingsRepository.updateOrganization(ctx.organizationId, patch);
-    if (!updated) throw new NotFoundError("Organización");
-    auditRepository.record(ctx.organizationId, ctx.user.id, "Organization", ctx.organizationId, "updated", patch);
+  async update(ctx: RequestContext, patch: z.infer<typeof updateSettingsSchema>): Promise<import("../repositories/settings.repository").OrgSettingsData> {
+    assertCan(ctx.user, "settings.update");
+    const org = await prisma.organization.findUnique({ where: { id: ctx.organizationId } });
+    if (!org) throw new NotFoundError("Organización");
+    const updated = await settingsRepository.upsertOrgSettings(ctx.organizationId, patch);
+    await auditRepository.record(ctx.organizationId, ctx.user.id, "OrgSettings", ctx.organizationId, "updated", patch as Record<string, unknown>);
     return updated;
   },
 
-  updateRules(ctx: RequestContext, rules: z.infer<typeof riskRuleSchema>[]): OnboardingRule[] {
-    assertCan(ctx.user, "settings.update"); // solo owner
+  async updateRules(ctx: RequestContext, rules: z.infer<typeof riskRuleSchema>[]): Promise<OnboardingRule[]> {
+    assertCan(ctx.user, "settings.update");
     const result: OnboardingRule[] = [];
     for (const r of rules) {
-      const updated = settingsRepository.updateRule(ctx.organizationId, r.type as OnboardingRuleType, {
+      const updated = await settingsRepository.updateRule(ctx.organizationId, r.type as OnboardingRuleType, {
         enabled: r.enabled, thresholdValue: r.thresholdValue,
       });
       if (updated) result.push(updated);
     }
-    auditRepository.record(ctx.organizationId, ctx.user.id, "OnboardingRule", ctx.organizationId, "updated", { count: result.length });
+    await auditRepository.record(ctx.organizationId, ctx.user.id, "OnboardingRule", ctx.organizationId, "updated", { count: result.length });
     return result;
   },
 };

@@ -9,6 +9,6 @@ export function PATCH(req: NextRequest, { params }: { params: { id: string } }) 
   return handle(async () => {
     const ctx = getRequestContext(req);
     const patch = updateTaskSchema.parse(await req.json());
-    return ok(taskService.update(ctx, params.id, patch));
+    return ok(await taskService.update(ctx, params.id, patch));
   });
 }

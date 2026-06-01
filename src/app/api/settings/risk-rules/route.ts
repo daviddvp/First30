@@ -9,6 +9,6 @@ export function PATCH(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const { rules } = updateRiskRulesSchema.parse(await req.json());
-    return ok(settingsService.updateRules(ctx, rules));
+    return ok(await settingsService.updateRules(ctx, rules));
   });
 }

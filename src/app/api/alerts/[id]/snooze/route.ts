@@ -9,6 +9,6 @@ export function POST(req: NextRequest, { params }: { params: { id: string } }) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const { days } = snoozeAlertSchema.parse(await req.json().catch(() => ({})));
-    return ok(alertService.snooze(ctx, params.id, days));
+    return ok(await alertService.snooze(ctx, params.id, days));
   });
 }

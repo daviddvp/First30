@@ -9,13 +9,13 @@ export function GET(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const q = taskListQuerySchema.parse(Object.fromEntries(req.nextUrl.searchParams));
-    return ok(taskService.list(ctx, q));
+    return ok(await taskService.list(ctx, q));
   });
 }
 export function POST(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const input = createTaskSchema.parse(await req.json());
-    return ok(taskService.create(ctx, input), 201);
+    return ok(await taskService.create(ctx, input), 201);
   });
 }

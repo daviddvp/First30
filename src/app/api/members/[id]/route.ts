@@ -8,12 +8,12 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: { id: string } };
 
 export function GET(req: NextRequest, { params }: Ctx) {
-  return handle(async () => ok(memberService.get(getRequestContext(req), params.id)));
+  return handle(async () => ok(await memberService.get(getRequestContext(req), params.id)));
 }
 export function PATCH(req: NextRequest, { params }: Ctx) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const patch = updateMemberSchema.parse(await req.json());
-    return ok(memberService.update(ctx, params.id, patch));
+    return ok(await memberService.update(ctx, params.id, patch));
   });
 }

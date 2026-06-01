@@ -7,6 +7,6 @@ export const dynamic = "force-dynamic";
 export function GET(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
-    return ok({ latest: reportService.latest(ctx) ?? null, history: reportService.list(ctx) });
+    return ok({ latest: await reportService.latest(ctx) ?? null, history: await reportService.list(ctx) });
   });
 }

@@ -1,5 +1,4 @@
-import { store, genId, nowISO } from "@/data/store";
-import { orgScope } from "@/data/mock-db";
+import { prisma } from "@/lib/db";
 import type { ID, Member, MemberStatus, RiskLevel } from "@/types";
 
 export interface MemberFilters {
@@ -12,37 +11,125 @@ export interface MemberFilters {
 }
 
 export const memberRepository = {
-  list(orgId: ID, f: MemberFilters = {}): Member[] {
-    let rows = orgScope(orgId).members();
-    if (f.status) rows = rows.filter((m) => m.status === f.status);
-    if (f.riskLevel) rows = rows.filter((m) => m.riskLevel === f.riskLevel);
-    if (f.coachId) rows = rows.filter((m) => m.assignedCoachId === f.coachId);
-    if (f.onboardingMin != null) rows = rows.filter((m) => m.onboardingDay >= f.onboardingMin!);
-    if (f.onboardingMax != null) rows = rows.filter((m) => m.onboardingDay <= f.onboardingMax!);
-    if (f.search) {
-      const q = f.search.toLowerCase();
-      rows = rows.filter((m) => m.fullName.toLowerCase().includes(q) || m.mainGoal.toLowerCase().includes(q));
-    }
-    return rows.sort((a, b) => a.onboardingDay - b.onboardingDay);
+  async list(orgId: ID, f: MemberFilters = {}): Promise<Member[]> {
+    const rows = await prisma.member.findMany({
+      where: {
+        organizationId: orgId,
+        ...(f.status    && { status:   f.status }),
+        ...(f.riskLevel && { riskLevel: f.riskLevel }),
+        ...(f.coachId   && { assignedCoachId: f.coachId }),
+        ...(f.onboardingMin != null && { onboardingDay: { gte: f.onboardingMin } }),
+        ...(f.onboardingMax != null && { onboardingDay: { lte: f.onboardingMax } }),
+        ...(f.search && {
+          OR: [
+            { fullName: { contains: f.search, mode: "insensitive" } },
+            { mainGoal: { contains: f.search, mode: "insensitive" } },
+          ],
+        }),
+      },
+      orderBy: { onboardingDay: "asc" },
+    });
+    return rows.map(toMember);
   },
 
-  findById(orgId: ID, id: ID): Member | undefined {
-    return orgScope(orgId).member(id);
+  async findById(orgId: ID, id: ID): Promise<Member | undefined> {
+    const row = await prisma.member.findFirst({
+      where: { id, organizationId: orgId },
+    });
+    return row ? toMember(row) : undefined;
   },
 
-  create(orgId: ID, data: Omit<Member, "id" | "organizationId" | "createdAt" | "updatedAt">): Member {
-    const member: Member = {
-      ...data, id: genId("mbr"), organizationId: orgId,
-      createdAt: nowISO(), updatedAt: nowISO(),
-    };
-    store.members.push(member);
-    return member;
+  async create(
+    orgId: ID,
+    data: Omit<Member, "id" | "organizationId" | "createdAt" | "updatedAt" | "ruleKey">,
+  ): Promise<Member> {
+    const row = await prisma.member.create({
+      data: {
+        organizationId: orgId,
+        fullName: data.fullName,
+        email: data.email,
+        phone: data.phone,
+        joinDate: new Date(data.joinDate),
+        onboardingDay: data.onboardingDay,
+        status: data.status,
+        riskLevel: data.riskLevel,
+        riskReason: data.riskReason ?? null,
+        mainGoal: data.mainGoal ?? null,
+        level: data.level,
+        limitations: data.limitations ?? null,
+        fears: data.fears ?? null,
+        acquisitionSource: data.acquisitionSource ?? null,
+        assignedCoachId: data.assignedCoachId ?? null,
+        lastAttendanceAt: data.lastAttendanceAt ? new Date(data.lastAttendanceAt) : null,
+        nextRecommendedAction: data.nextRecommendedAction ?? null,
+        activationScore: data.activationScore,
+      },
+    });
+    return toMember(row);
   },
 
-  update(orgId: ID, id: ID, patch: Partial<Member>): Member | undefined {
-    const m = store.members.find((x) => x.id === id && x.organizationId === orgId);
-    if (!m) return undefined;
-    Object.assign(m, patch, { updatedAt: nowISO() });
-    return m;
+  async update(orgId: ID, id: ID, patch: Partial<Member>): Promise<Member | undefined> {
+    const exists = await prisma.member.findFirst({ where: { id, organizationId: orgId }, select: { id: true } });
+    if (!exists) return undefined;
+
+    const row = await prisma.member.update({
+      where: { id },
+      data: {
+        ...(patch.fullName             !== undefined && { fullName: patch.fullName }),
+        ...(patch.email                !== undefined && { email: patch.email }),
+        ...(patch.phone                !== undefined && { phone: patch.phone }),
+        ...(patch.status               !== undefined && { status: patch.status }),
+        ...(patch.riskLevel            !== undefined && { riskLevel: patch.riskLevel }),
+        ...(patch.riskReason           !== undefined && { riskReason: patch.riskReason }),
+        ...(patch.mainGoal             !== undefined && { mainGoal: patch.mainGoal }),
+        ...(patch.level                !== undefined && { level: patch.level }),
+        ...(patch.limitations          !== undefined && { limitations: patch.limitations }),
+        ...(patch.fears                !== undefined && { fears: patch.fears }),
+        ...(patch.assignedCoachId      !== undefined && { assignedCoachId: patch.assignedCoachId }),
+        ...(patch.lastAttendanceAt     !== undefined && {
+          lastAttendanceAt: patch.lastAttendanceAt ? new Date(patch.lastAttendanceAt) : null,
+        }),
+        ...(patch.nextRecommendedAction !== undefined && { nextRecommendedAction: patch.nextRecommendedAction }),
+        ...(patch.activationScore      !== undefined && { activationScore: patch.activationScore }),
+        ...(patch.onboardingDay        !== undefined && { onboardingDay: patch.onboardingDay }),
+      },
+    });
+    return toMember(row);
   },
 };
+
+// Mapper Prisma → domain type (Date → ISODate string)
+function toMember(p: {
+  id: string; organizationId: string; fullName: string; email: string | null;
+  phone: string | null; joinDate: Date; onboardingDay: number;
+  status: string; riskLevel: string; riskReason: string | null;
+  mainGoal: string | null; level: string; limitations: string | null;
+  fears: string | null; acquisitionSource: string | null;
+  assignedCoachId: string | null; lastAttendanceAt: Date | null;
+  nextRecommendedAction: string | null; activationScore: number;
+  createdAt: Date; updatedAt: Date;
+}): Member {
+  return {
+    id: p.id,
+    organizationId: p.organizationId,
+    fullName: p.fullName,
+    email: p.email ?? "",
+    phone: p.phone ?? "",
+    joinDate: p.joinDate.toISOString(),
+    onboardingDay: p.onboardingDay,
+    status: p.status as Member["status"],
+    riskLevel: p.riskLevel as Member["riskLevel"],
+    riskReason: p.riskReason,
+    mainGoal: p.mainGoal ?? "",
+    level: p.level as Member["level"],
+    limitations: p.limitations,
+    fears: p.fears,
+    acquisitionSource: p.acquisitionSource ?? "",
+    assignedCoachId: p.assignedCoachId,
+    lastAttendanceAt: p.lastAttendanceAt?.toISOString() ?? null,
+    nextRecommendedAction: p.nextRecommendedAction ?? "",
+    activationScore: p.activationScore,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}

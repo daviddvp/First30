@@ -9,6 +9,6 @@ export function GET(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const { category } = templateListQuerySchema.parse(Object.fromEntries(req.nextUrl.searchParams));
-    return ok(messageService.templates(ctx, category));
+    return ok(await messageService.templates(ctx, category));
   });
 }

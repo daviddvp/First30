@@ -1,53 +1,58 @@
-/* Capa de aislamiento multi-tenant + visibilidad por rol.
-   Envuelve orgScope (ya scoped por organizationId) y añade el filtrado de
-   coach: un coach solo "ve" sus socios asignados y las tareas asignadas a él.
-   Owner y manager ven todo dentro de su organización. */
-import { orgScope, type OrgScope } from "../data/mock-db";
+// ─────────────────────────────────────────────────────────────────────────────
+// First30 — Aislamiento multi-tenant + visibilidad por rol.
+//
+// Provee helpers para construir filtros de query basados en el rol del usuario.
+// Los repositorios aplican estos filtros al hacer queries a Prisma.
+//
+// Coach solo ve sus socios/tareas/alertas.
+// Owner y manager ven todo dentro de su organización.
+// ─────────────────────────────────────────────────────────────────────────────
 import { seesAllMembers } from "./permissions";
 import type { RequestContext } from "./auth";
-import type { Member, Task, RiskAlert, ID } from "../types";
+import type { ID } from "../types";
 
-export interface ScopedView {
-  ctx: RequestContext;
-  org: OrgScope;
-  /** Socios visibles para el usuario (coach => solo los suyos). */
-  visibleMembers(): Member[];
-  /** ¿El usuario puede ver este socio concreto? */
-  canSeeMember(memberId: ID): boolean;
-  /** Tareas visibles (coach => asignadas a él). */
-  visibleTasks(): Task[];
-  /** Alertas visibles (coach => de sus socios). */
-  visibleAlerts(): RiskAlert[];
-  /** CoachProfile.id dueño de un socio (para checks de permiso). */
-  ownerCoachOf(memberId: ID): ID | null;
+export interface VisibilityFilters {
+  /** Si está presente, filtrar por assignedCoachId (socios) */
+  coachId?: ID;
+  /** Si está presente, filtrar tareas por assignedToUserId */
+  assignedToUserId?: ID;
+  /** Si true, el usuario ve todos los recursos de la org */
+  seeAll: boolean;
 }
 
-export function scopedView(ctx: RequestContext): ScopedView {
-  const org = orgScope(ctx.organizationId);
+/**
+ * Retorna los filtros de visibilidad para un usuario.
+ * Los repositorios usan estos filtros para limitar las queries.
+ */
+export function getVisibilityFilters(ctx: RequestContext): VisibilityFilters {
   const { user } = ctx;
-  const all = seesAllMembers(user.role);
+  const seeAll = seesAllMembers(user.role);
 
-  const visibleMembers = () =>
-    all ? org.members() : org.members().filter((m) => m.assignedCoachId === user.coachProfileId);
-
-  const visibleMemberIds = () => new Set(visibleMembers().map((m) => m.id));
+  if (seeAll) {
+    return { seeAll: true };
+  }
 
   return {
-    ctx,
-    org,
-    visibleMembers,
-    canSeeMember: (memberId) => {
-      if (all) return !!org.member(memberId);
-      const m = org.member(memberId);
-      return !!m && m.assignedCoachId === user.coachProfileId;
-    },
-    visibleTasks: () =>
-      all ? org.tasks() : org.tasks().filter((t) => t.assignedToUserId === user.id),
-    visibleAlerts: () => {
-      if (all) return org.alerts();
-      const ids = visibleMemberIds();
-      return org.alerts().filter((a) => ids.has(a.memberId));
-    },
-    ownerCoachOf: (memberId) => org.member(memberId)?.assignedCoachId ?? null,
+    seeAll: false,
+    coachId: user.coachProfileId ?? undefined,
+    assignedToUserId: user.id,
   };
+}
+
+/**
+ * Determina si el usuario puede ver un socio concreto.
+ * member.assignedCoachId debe haberse obtenido previamente.
+ */
+export function canSeeMember(ctx: RequestContext, memberCoachId: ID | null): boolean {
+  if (seesAllMembers(ctx.user.role)) return true;
+  return memberCoachId === ctx.user.coachProfileId;
+}
+
+/**
+ * Devuelve el CoachProfile.id del dueño de un socio (para checks de permiso).
+ * Si el usuario no puede ver el recurso, devuelve null.
+ * ownerCoachId es el assignedCoachId del socio (ya cargado).
+ */
+export function ownerCoachOf(assignedCoachId: ID | null): ID | null {
+  return assignedCoachId ?? null;
 }

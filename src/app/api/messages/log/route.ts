@@ -9,6 +9,6 @@ export function POST(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const input = logMessageSchema.parse(await req.json());
-    return ok(messageService.log(ctx, input), 201);
+    return ok(await messageService.log(ctx, input), 201);
   });
 }

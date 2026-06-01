@@ -1,20 +1,41 @@
-import { genId, nowISO } from "@/data/store";
+import { prisma } from "@/lib/db";
 import type { ID } from "@/types";
 
 export interface InternalNote {
-  id: ID; organizationId: ID; memberId: ID; authorUserId: ID; body: string; createdAt: string;
+  id: ID;
+  organizationId: ID;
+  memberId: ID;
+  authorUserId: ID | null;
+  body: string;
+  createdAt: string;
 }
-// Almacén en memoria (se reinicia al recargar el módulo). Sustituible por tabla real.
-const notes: InternalNote[] = [];
 
 export const noteRepository = {
-  byMember(orgId: ID, memberId: ID): InternalNote[] {
-    return notes.filter((n) => n.organizationId === orgId && n.memberId === memberId)
-      .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  async byMember(orgId: ID, memberId: ID): Promise<InternalNote[]> {
+    const rows = await prisma.note.findMany({
+      where: { organizationId: orgId, memberId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((n) => ({
+      id: n.id, organizationId: n.organizationId, memberId: n.memberId,
+      authorUserId: n.authorId ?? null, body: n.content,
+      createdAt: n.createdAt.toISOString(),
+    }));
   },
-  create(orgId: ID, memberId: ID, authorUserId: ID, body: string): InternalNote {
-    const note: InternalNote = { id: genId("note"), organizationId: orgId, memberId, authorUserId, body, createdAt: nowISO() };
-    notes.push(note);
-    return note;
+
+  async create(orgId: ID, memberId: ID, authorUserId: ID | null, body: string): Promise<InternalNote> {
+    const row = await prisma.note.create({
+      data: {
+        organizationId: orgId,
+        memberId,
+        authorId: authorUserId ?? null,
+        content: body,
+      },
+    });
+    return {
+      id: row.id, organizationId: row.organizationId, memberId: row.memberId,
+      authorUserId: row.authorId ?? null, body: row.content,
+      createdAt: row.createdAt.toISOString(),
+    };
   },
 };

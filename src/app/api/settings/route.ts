@@ -6,12 +6,12 @@ import { updateSettingsSchema } from "@/server/schemas/settings.schema";
 
 export const dynamic = "force-dynamic";
 export function GET(req: NextRequest) {
-  return handle(async () => ok(settingsService.get(getRequestContext(req))));
+  return handle(async () => ok(await settingsService.get(getRequestContext(req))));
 }
 export function PATCH(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const patch = updateSettingsSchema.parse(await req.json());
-    return ok(settingsService.update(ctx, patch));
+    return ok(await settingsService.update(ctx, patch));
   });
 }

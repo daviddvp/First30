@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { tasksApi } from "@/lib/api/tasks";
+import { usersApi } from "@/lib/api/users";
 import { useAsync } from "@/hooks/useAsync";
 import { useToast } from "@/components/ui/ToastProvider";
 import { Card } from "@/components/ui/Card";
@@ -11,7 +13,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FilterChips } from "@/components/ui/FilterChips";
 import { Button } from "@/components/ui/Button";
-import { Check } from "lucide-react";
+import { Check, Upload, CheckSquare } from "lucide-react";
 import { priorityLabel, priorityTone } from "@/lib/formatters";
 import type { Task, TaskStatus } from "@/types";
 
@@ -24,12 +26,22 @@ const GROUPS: { key: TaskStatus; label: string }[] = [
   { key: "pending", label: "Pendientes" }, { key: "completed", label: "Completadas" },
 ];
 
-export function TasksView({ assignees }: { assignees: { value: string; label: string }[] }) {
+export function TasksView() {
   const toast = useToast();
   const [priority, setPriority] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
 
-  const tasks = useAsync(() => tasksApi.list({ priority, assignedTo }), [priority, assignedTo]);
+  // Cargar usuarios de la organización desde API (para el filtro de responsable)
+  const users = useAsync(() => usersApi.list(), []);
+  const assigneeOpts = [
+    { value: "", label: "Todos" },
+    ...(users.data ?? []).map((u) => ({ value: u.id, label: u.name })),
+  ];
+
+  const tasks = useAsync(
+    () => tasksApi.list({ priority, assignedTo }),
+    [priority, assignedTo],
+  );
 
   async function toggle(t: Task) {
     const completed = t.status !== "completed";
@@ -42,19 +54,43 @@ export function TasksView({ assignees }: { assignees: { value: string; label: st
     }
   }
 
+  const hasFilters = !!priority || !!assignedTo;
+
   return (
     <div>
       <div className="mb-4 flex flex-col gap-2">
         <FilterChips label="Prioridad" options={PRIORITY_OPTS} value={priority} onChange={setPriority} />
-        {assignees.length > 1 && <FilterChips label="Responsable" options={assignees} value={assignedTo} onChange={setAssignedTo} />}
+        {assigneeOpts.length > 1 && (
+          <FilterChips label="Responsable" options={assigneeOpts} value={assignedTo} onChange={setAssignedTo} />
+        )}
       </div>
 
       {tasks.loading ? (
         <LoadingState rows={6} />
       ) : tasks.error ? (
-        <ErrorState description={tasks.error} action={<Button variant="ghost" onClick={tasks.reload}>Reintentar</Button>} />
+        <ErrorState
+          description="No hemos podido cargar las tareas. Reintenta o revisa la conexión."
+          action={<Button variant="ghost" onClick={tasks.reload}>Reintentar</Button>}
+        />
       ) : !tasks.data || tasks.data.length === 0 ? (
-        <EmptyState title="Sin tareas con estos filtros" description="Ajusta la prioridad o el responsable." />
+        hasFilters ? (
+          <EmptyState
+            icon={CheckSquare}
+            title="Sin tareas con estos filtros"
+            description="Ajusta la prioridad o el responsable para ver más tareas."
+          />
+        ) : (
+          <EmptyState
+            icon={CheckSquare}
+            title="No hay tareas pendientes"
+            description="Las tareas se generan automáticamente al importar socios o activar reglas de onboarding."
+            action={
+              <Link href="/import/members">
+                <Button icon={Upload}>Importar socios</Button>
+              </Link>
+            }
+          />
+        )
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {GROUPS.map((g) => {
@@ -69,21 +105,38 @@ export function TasksView({ assignees }: { assignees: { value: string; label: st
                   {items.map((t) => (
                     <div key={t.id} className={`rounded-lg border border-border p-3 ${t.status === "completed" ? "bg-subtle" : "bg-surface"}`}>
                       <div className="flex items-start gap-2.5">
-                        <button onClick={() => toggle(t)} className="mt-0.5 shrink-0" aria-label="Completar tarea">
+                        <button
+                          onClick={() => toggle(t)}
+                          className="mt-0.5 shrink-0"
+                          aria-label={t.status === "completed" ? "Reabrir tarea" : "Completar tarea"}
+                        >
                           {t.status === "completed" ? (
-                            <span className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-md bg-accent"><Check size={13} color="#fff" strokeWidth={3} /></span>
+                            <span className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-md bg-accent">
+                              <Check size={13} color="#fff" strokeWidth={3} />
+                            </span>
                           ) : (
                             <span className="inline-block h-[18px] w-[18px] rounded-md border-2 border-border-strong" />
                           )}
                         </button>
                         <div className="min-w-0 flex-1">
-                          <div className={`text-[13px] font-semibold leading-snug ${t.status === "completed" ? "text-faint line-through" : "text-ink"}`}>{t.title}</div>
-                          <div className="mt-2"><Badge tone={priorityTone(t.priority)}>{priorityLabel(t.priority)}</Badge></div>
+                          <div className={`text-[13px] font-semibold leading-snug ${t.status === "completed" ? "text-faint line-through" : "text-ink"}`}>
+                            {t.title}
+                          </div>
+                          {t.memberId && (
+                            <Link href={`/members/${t.memberId}`} className="mt-0.5 block text-[11.5px] text-accent-strong hover:underline">
+                              Ver socio →
+                            </Link>
+                          )}
+                          <div className="mt-2">
+                            <Badge tone={priorityTone(t.priority)}>{priorityLabel(t.priority)}</Badge>
+                          </div>
                         </div>
                       </div>
                     </div>
                   ))}
-                  {items.length === 0 && <div className="py-4 text-center text-[12.5px] text-faint">Sin tareas</div>}
+                  {items.length === 0 && (
+                    <div className="py-4 text-center text-[12.5px] text-faint">Sin tareas</div>
+                  )}
                 </div>
               </Card>
             );

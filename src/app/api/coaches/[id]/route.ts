@@ -5,5 +5,5 @@ import { coachService } from "@/server/services/coach.service";
 
 export const dynamic = "force-dynamic";
 export function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  return handle(async () => ok(coachService.get(getRequestContext(req), params.id)));
+  return handle(async () => ok(await coachService.get(getRequestContext(req), params.id)));
 }

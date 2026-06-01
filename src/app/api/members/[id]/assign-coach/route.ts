@@ -10,6 +10,6 @@ export function POST(req: NextRequest, { params }: { params: { id: string } }) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const { coachId } = assignCoachSchema.parse(await req.json());
-    return ok(memberService.assignCoach(ctx, params.id, coachId));
+    return ok(await memberService.assignCoach(ctx, params.id, coachId));
   });
 }

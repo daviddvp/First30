@@ -9,18 +9,20 @@ const VARIANT: Record<Variant, string> = {
 };
 
 export function Button({
-  children, variant = "primary", icon: Icon, onClick, type = "button",
+  children, variant = "primary", icon: Icon, onClick, type = "button", disabled,
 }: {
   children: React.ReactNode;
   variant?: Variant;
   icon?: LucideIcon;
   onClick?: () => void;
   type?: "button" | "submit";
+  disabled?: boolean;
 }) {
   return (
-    <button type={type} onClick={onClick} className={cn(
+    <button type={type} onClick={onClick} disabled={disabled} className={cn(
       "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition",
       VARIANT[variant],
+      disabled && "cursor-not-allowed opacity-50",
     )}>
       {Icon && <Icon size={15} strokeWidth={2.2} />}
       {children}

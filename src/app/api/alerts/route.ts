@@ -9,6 +9,6 @@ export function GET(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const q = alertListQuerySchema.parse(Object.fromEntries(req.nextUrl.searchParams));
-    return ok(alertService.list(ctx, q));
+    return ok(await alertService.list(ctx, q));
   });
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useAsync } from "@/hooks/useAsync";
 import { api } from "@/lib/api/client";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -11,9 +12,9 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { ReportMetricCard, type MetricDelta } from "./ReportMetricCard";
 import { CoachDistribution, type CoachRow } from "./CoachDistribution";
 import { ReportSummaryBlock } from "./ReportSummaryBlock";
-import { AuditLog } from "@/components/audit/AuditLog";
-import { FileText, Download, Send, RefreshCw } from "lucide-react";
-import { pct, riskTone, riskLabel } from "@/lib/formatters";
+import { ChevronDown, RefreshCw, Download, Send } from "lucide-react";
+import { riskTone, riskLabel } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 
 interface AdvancedReportDto {
   metrics: { newMembers: number; secondVisitRate: number; activationRate: number; atRisk: number; tasksCompleted: number; avgAttendanceFirst14: number; day30Completed: number; noCoach: number };
@@ -34,6 +35,7 @@ interface AdvancedReportDto {
 export function WeeklyReport() {
   const toast = useToast();
   const report = useAsync(() => api.get<AdvancedReportDto>("/reports/weekly/advanced"), []);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   async function generate() {
     try {
@@ -55,81 +57,103 @@ export function WeeklyReport() {
 
   return (
     <div className="space-y-4">
+      {/* Acciones */}
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="ghost" icon={RefreshCw} onClick={generate}>Generar informe</Button>
         <Button variant="ghost" icon={Download} onClick={downloadPdf}>Descargar PDF</Button>
         <Button variant="ghost" icon={Send} onClick={sendEmail}>Enviar por email</Button>
       </div>
 
-      {/* Métricas con comparación */}
+      {/* Métricas principales */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <ReportMetricCard label="Nuevos socios" display={String(m.newMembers)} comparison={r.comparison.newMembers} />
-        <ReportMetricCard label="Second Visit Rate" display={pct(m.secondVisitRate)} comparison={r.comparison.secondVisitRate} />
-        <ReportMetricCard label="Activation Rate" display={pct(m.activationRate)} comparison={r.comparison.activationRate} />
-        <ReportMetricCard label="Socios en riesgo" display={String(m.atRisk)} comparison={r.comparison.atRisk} goodWhenUp={false} />
+        <ReportMetricCard label="Nuevos socios" display={String(m.newMembers)} />
+        <ReportMetricCard label="Segunda visita" display={String(Math.round(m.secondVisitRate * m.newMembers))} />
+        <ReportMetricCard label="Socios en riesgo" display={String(m.atRisk)} goodWhenUp={false} />
+        <ReportMetricCard label="Sin coach" display={String(m.noCoach)} goodWhenUp={false} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <ReportSummaryBlock title="Resumen para dirección" badge="Dirección" text={r.executiveSummary} />
-          <ReportSummaryBlock title="Resumen para coaches" badge="Coaches" text={r.coachSummary} />
+      {/* Resumen para dirección + Coach summary */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ReportSummaryBlock title="Resumen para dirección" badge="Dirección" text={r.executiveSummary} />
+        <ReportSummaryBlock title="Resumen para coaches" badge="Coaches" text={r.coachSummary} />
+      </div>
 
-          {/* Recomendaciones por prioridad */}
-          <Card className="p-4">
-            <h3 className="mb-3 text-[14px] font-bold">Recomendaciones por prioridad</h3>
-            <ul className="space-y-2">
-              {r.recommendations.map((rec, i) => (
-                <li key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
-                  <span className="text-[13px] font-medium">{rec.text}</span>
-                  <Badge tone={riskTone(rec.priority)}>{riskLabel(rec.priority)}</Badge>
-                </li>
-              ))}
-              {r.recommendations.length === 0 && <li className="py-2 text-center text-[12.5px] text-faint">Sin recomendaciones críticas.</li>}
-            </ul>
-          </Card>
+      {/* Acciones prioritarias */}
+      {r.recommendations.length > 0 && (
+        <Card className="p-4">
+          <h3 className="mb-3 text-[14px] font-bold">Acciones prioritarias esta semana</h3>
+          <ul className="space-y-2">
+            {r.recommendations.map((rec, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+                <span className="text-[13px] font-medium">{rec.text}</span>
+                <Badge tone={riskTone(rec.priority)}>{riskLabel(rec.priority)}</Badge>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
-          {/* Riesgos abiertos / resueltos */}
+      {/* Resumen operativo rápido */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="p-4">
+          <h3 className="mb-3 text-[14px] font-bold">Esta semana</h3>
+          <dl className="space-y-2 text-[13px]">
+            <Row label="Sin segunda visita" value={r.membersWithoutSecondVisit.length} />
+            <Row label="Sin coach asignado" value={r.membersWithoutCoach.length} danger={r.membersWithoutCoach.length > 0} />
+            <Row label="Llegan a día 30" value={r.membersReachingDay30.length} />
+            <Row label="Tareas completadas" value={r.tasksCompleted} />
+            <Row label="Tareas pendientes" value={r.tasksPending} danger={r.tasksPending > 10} />
+          </dl>
+        </Card>
+
+        <Card className="p-4">
+          <h3 className="mb-2 text-[14px] font-bold">Alertas abiertas <span className="text-faint">({r.openAlerts.length})</span></h3>
+          <ul className="space-y-1.5">
+            {r.openAlerts.slice(0, 5).map((a) => (
+              <li key={a.id} className="flex items-center justify-between text-[12.5px]">
+                <span className="truncate text-muted">{a.reason}</span>
+                <Badge tone={riskTone(a.riskLevel)}>{riskLabel(a.riskLevel)}</Badge>
+              </li>
+            ))}
+            {r.openAlerts.length === 0 && <li className="text-[12.5px] text-faint">Sin alertas abiertas</li>}
+          </ul>
+        </Card>
+      </div>
+
+      {/* Sección avanzada colapsable (distribución por coach, comparativas, alertas resueltas) */}
+      <button
+        onClick={() => setShowAdvanced((v) => !v)}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-[12.5px] font-medium text-muted transition hover:border-border-strong hover:text-ink"
+      >
+        <ChevronDown size={14} className={cn("transition-transform", showAdvanced && "rotate-180")} />
+        {showAdvanced ? "Ocultar detalle avanzado" : "Ver detalle avanzado"}
+      </button>
+
+      {showAdvanced && (
+        <div className="space-y-4">
+          <CoachDistribution rows={r.coachDistribution} />
           <div className="grid gap-4 md:grid-cols-2">
             <Card className="p-4">
-              <h3 className="mb-2 text-[14px] font-bold">Riesgos abiertos <span className="text-faint">({r.openAlerts.length})</span></h3>
-              <ul className="space-y-1.5">
-                {r.openAlerts.slice(0, 6).map((a) => (
-                  <li key={a.id} className="flex items-center justify-between text-[12.5px]">
-                    <span className="truncate text-muted">{a.reason}</span>
-                    <Badge tone={riskTone(a.riskLevel)}>{riskLabel(a.riskLevel)}</Badge>
-                  </li>
-                ))}
-                {r.openAlerts.length === 0 && <li className="text-[12.5px] text-faint">Ninguno</li>}
-              </ul>
+              <h3 className="mb-2 text-[14px] font-bold">Comparativa vs semana anterior</h3>
+              <dl className="space-y-2 text-[13px]">
+                <CompRow label="Segunda visita" delta={r.comparison.secondVisitRate} pct />
+                <CompRow label="Tasa activación" delta={r.comparison.activationRate} pct />
+                <CompRow label="Nuevos socios" delta={r.comparison.newMembers} />
+                <CompRow label="Socios en riesgo" delta={r.comparison.atRisk} goodWhenUp={false} />
+              </dl>
             </Card>
             <Card className="p-4">
-              <h3 className="mb-2 text-[14px] font-bold">Riesgos resueltos <span className="text-faint">({r.resolvedAlerts.length})</span></h3>
+              <h3 className="mb-2 text-[14px] font-bold">Alertas resueltas <span className="text-faint">({r.resolvedAlerts.length})</span></h3>
               <ul className="space-y-1.5">
                 {r.resolvedAlerts.slice(0, 6).map((a) => (
                   <li key={a.id} className="truncate text-[12.5px] text-muted">{a.reason}</li>
                 ))}
-                {r.resolvedAlerts.length === 0 && <li className="text-[12.5px] text-faint">Ninguno</li>}
+                {r.resolvedAlerts.length === 0 && <li className="text-[12.5px] text-faint">Ninguna</li>}
               </ul>
             </Card>
           </div>
         </div>
-
-        <div className="space-y-4">
-          <CoachDistribution rows={r.coachDistribution} />
-          <Card className="p-4">
-            <h3 className="mb-3 text-[14px] font-bold">Esta semana</h3>
-            <dl className="space-y-2 text-[13px]">
-              <Row label="Sin segunda visita" value={r.membersWithoutSecondVisit.length} />
-              <Row label="Sin coach" value={r.membersWithoutCoach.length} danger={r.membersWithoutCoach.length > 0} />
-              <Row label="Llegan a día 30" value={r.membersReachingDay30.length} />
-              <Row label="Tareas completadas" value={r.tasksCompleted} />
-              <Row label="Tareas pendientes" value={r.tasksPending} />
-              <Row label="Asist. media 14 días" value={m.avgAttendanceFirst14} />
-            </dl>
-          </Card>
-          <AuditLog />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -139,6 +163,22 @@ function Row({ label, value, danger }: { label: string; value: number; danger?: 
     <div className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0">
       <dt className="text-muted">{label}</dt>
       <dd className={`tnum font-bold ${danger ? "text-danger-strong" : "text-ink"}`}>{value}</dd>
+    </div>
+  );
+}
+
+function CompRow({ label, delta, pct, goodWhenUp = true }: { label: string; delta: MetricDelta; pct?: boolean; goodWhenUp?: boolean }) {
+  if (delta.direction === "na" || delta.delta === null) {
+    return <div className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0 text-[13px]"><dt className="text-muted">{label}</dt><dd className="text-faint">—</dd></div>;
+  }
+  const isGood = delta.direction === "up" ? goodWhenUp : delta.direction === "down" ? !goodWhenUp : true;
+  const color = isGood ? "text-accent-strong" : "text-danger-strong";
+  const sign = delta.direction === "up" ? "+" : "";
+  const val = pct ? `${sign}${Math.round((delta.delta ?? 0) * 100)} pp` : `${sign}${delta.delta}`;
+  return (
+    <div className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0 text-[13px]">
+      <dt className="text-muted">{label}</dt>
+      <dd className={cn("tnum font-bold", color)}>{val}</dd>
     </div>
   );
 }

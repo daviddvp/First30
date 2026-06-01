@@ -15,12 +15,12 @@ import { RiskReasonPanel } from "@/components/ui/RiskReasonPanel";
 import { SuggestedNextBestAction } from "@/components/ui/SuggestedNextBestAction";
 import { ActivityFeed } from "@/components/ui/ActivityFeed";
 import { AuditLog } from "@/components/ui/AuditLog";
-import { ScoreTrend } from "@/components/ui/ScoreTrend";
 import { AiSummaryCard } from "@/components/ui/AiSummaryCard";
 import { MessageHistory } from "@/components/ui/MessageHistory";
 import { InternalNotes, type NoteItem } from "@/components/ui/InternalNotes";
 import { statusLabel, statusTone } from "@/lib/formatters";
-import { Phone } from "lucide-react";
+import { Phone, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Member } from "@/types";
 
 export function MemberDetailView({ member, coachId }: { member: Member; coachId: string | null }) {
@@ -28,6 +28,7 @@ export function MemberDetailView({ member, coachId }: { member: Member; coachId:
   const detail = useAsync(() => memberDetailApi.get(member.id), [member.id]);
   const notes = useAsync(() => memberDetailApi.notes(member.id), [member.id]);
   const [contacted, setContacted] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   async function markContacted() {
     try {
@@ -56,6 +57,7 @@ export function MemberDetailView({ member, coachId }: { member: Member; coachId:
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
+      {/* Columna principal */}
       <div className="space-y-4 lg:col-span-2">
         <SuggestedNextBestAction
           action={{
@@ -75,8 +77,21 @@ export function MemberDetailView({ member, coachId }: { member: Member; coachId:
         </div>
 
         <InternalNotes memberId={member.id} initial={(notes.data as NoteItem[]) ?? []} />
+
+        {/* Historial de cambios — colapsado para no distraer */}
+        <div>
+          <button
+            onClick={() => setShowHistory((v) => !v)}
+            className="flex items-center gap-1.5 text-[12px] text-faint hover:text-ink"
+          >
+            <ChevronDown size={12} className={cn("transition-transform", showHistory && "rotate-180")} />
+            {showHistory ? "Ocultar historial de cambios" : "Ver historial de cambios"}
+          </button>
+          {showHistory && <div className="mt-3"><AuditLog items={d.audit} /></div>}
+        </div>
       </div>
 
+      {/* Sidebar */}
       <div className="space-y-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
@@ -95,8 +110,6 @@ export function MemberDetailView({ member, coachId }: { member: Member; coachId:
         </Card>
 
         <ActivationScoreCard result={{ ...i.score, breakdown: i.score.breakdown }} />
-        <ScoreTrend points={d.scoreHistory} />
-        <AuditLog items={d.audit} />
       </div>
     </div>
   );

@@ -19,36 +19,45 @@ function actionFor(m: Member): string {
 }
 
 export const coachService = {
-  list(ctx: RequestContext): CoachView[] {
+  async list(ctx: RequestContext): Promise<CoachView[]> {
     assertCan(ctx.user, "member.read");
-    return coachRepository.list(ctx.organizationId).map((c) => {
-      const members = coachRepository.membersOfCoach(ctx.organizationId, c.id);
+    const coaches = await coachRepository.list(ctx.organizationId);
+    return Promise.all(coaches.map(async (c) => {
+      const [members, load, userRow] = await Promise.all([
+        coachRepository.membersOfCoach(ctx.organizationId, c.id),
+        coachRepository.load(ctx.organizationId, c.id),
+        coachRepository.userOf(ctx.organizationId, c.id),
+      ]);
       return {
         ...c, memberCount: members.length,
         atRiskCount: members.filter((m) => m.status === "at_risk").length,
-        load: coachRepository.load(ctx.organizationId, c.id),
-        userName: coachRepository.userOf(ctx.organizationId, c.id)?.name ?? null,
+        load, userName: userRow?.name ?? null,
       };
-    });
+    }));
   },
 
-  get(ctx: RequestContext, id: ID): CoachView {
+  async get(ctx: RequestContext, id: ID): Promise<CoachView> {
     assertCan(ctx.user, "member.read");
-    const c = coachRepository.findById(ctx.organizationId, id);
+    const c = await coachRepository.findById(ctx.organizationId, id);
     if (!c) throw new NotFoundError("Coach");
-    const members = coachRepository.membersOfCoach(ctx.organizationId, id);
+    const [members, load, userRow] = await Promise.all([
+      coachRepository.membersOfCoach(ctx.organizationId, id),
+      coachRepository.load(ctx.organizationId, id),
+      coachRepository.userOf(ctx.organizationId, id),
+    ]);
     return {
       ...c, memberCount: members.length,
       atRiskCount: members.filter((m) => m.status === "at_risk").length,
-      load: coachRepository.load(ctx.organizationId, id),
-      userName: coachRepository.userOf(ctx.organizationId, id)?.name ?? null,
+      load, userName: userRow?.name ?? null,
     };
   },
 
-  todayMembers(ctx: RequestContext, id: ID): TodayMember[] {
+  async todayMembers(ctx: RequestContext, id: ID): Promise<TodayMember[]> {
     assertCan(ctx.user, "member.read");
-    if (!coachRepository.findById(ctx.organizationId, id)) throw new NotFoundError("Coach");
-    return coachRepository.membersOfCoach(ctx.organizationId, id)
+    const c = await coachRepository.findById(ctx.organizationId, id);
+    if (!c) throw new NotFoundError("Coach");
+    const members = await coachRepository.membersOfCoach(ctx.organizationId, id);
+    return members
       .filter((m) => m.status !== "completed" && m.status !== "churned")
       .map((member) => ({ member, suggestedAction: actionFor(member) }));
   },

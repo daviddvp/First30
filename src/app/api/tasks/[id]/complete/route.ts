@@ -9,6 +9,6 @@ export function POST(req: NextRequest, { params }: { params: { id: string } }) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const { completed } = completeTaskSchema.parse(await req.json().catch(() => ({})));
-    return ok(taskService.setCompleted(ctx, params.id, completed));
+    return ok(await taskService.setCompleted(ctx, params.id, completed));
   });
 }

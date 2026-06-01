@@ -8,12 +8,12 @@ export const dynamic = "force-dynamic";
 const addNoteSchema = z.object({ body: z.string().min(1, "La nota no puede estar vacía").max(1000) });
 
 export function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  return handle(async () => ok(noteService.list(getRequestContext(req), params.id)));
+  return handle(async () => ok(await noteService.list(getRequestContext(req), params.id)));
 }
 export function POST(req: NextRequest, { params }: { params: { id: string } }) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const { body } = addNoteSchema.parse(await req.json());
-    return ok(noteService.add(ctx, params.id, body), 201);
+    return ok(await noteService.add(ctx, params.id, body), 201);
   });
 }

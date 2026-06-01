@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { insightService } from "@/server/services/insight.service";
-import { orgScope } from "@/data/mock-db";
+import { memberRepository } from "@/server/repositories/member.repository";
 import { reportService } from "@/server/services/report.service";
 import { resolveDefaultOrg } from "@/lib/tenant";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -9,18 +9,30 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ChevronRight, Plus } from "lucide-react";
 import { pct, riskTone, riskLabel, initials } from "@/lib/formatters";
+import type { Member } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
   const orgId = resolveDefaultOrg();
-  const scope = orgScope(orgId);
-  const members = scope.members();
-  const report = reportService.latestRaw(orgId);
-  const m = report?.metricsJson;
 
-  // Acciones recomendadas: top socios en riesgo, con su next-best-action real.
-  const riskInsights = insightService.riskForOrg(orgId).slice(0, 5);
+  // Cargar datos con graceful fallback si la DB no está configurada
+  let members: Member[] = [];
+  let report = null;
+  let riskInsights: Awaited<ReturnType<typeof insightService.riskForOrg>> = [];
+
+  try {
+    [members, report, riskInsights] = await Promise.all([
+      memberRepository.list(orgId),
+      reportService.latestRaw(orgId),
+      insightService.riskForOrg(orgId).then((r) => r.slice(0, 5)),
+    ]);
+  } catch {
+    // DB no configurada o no disponible — mostrar estado vacío
+  }
+
+  const m = report?.metricsJson;
+  const memberMap = new Map(members.map((mem) => [mem.id, mem]));
 
   const metrics = [
     { label: "Nuevos socios este mes", value: String(members.length), sub: "en onboarding" },
@@ -51,7 +63,8 @@ export default function DashboardPage() {
         <h2 className="mb-3 text-[15px] font-bold">Acciones recomendadas esta semana</h2>
         <div className="space-y-2">
           {riskInsights.map((i) => {
-            const mem = scope.member(i.risk.memberId)!;
+            const mem = memberMap.get(i.risk.memberId);
+            if (!mem) return null;
             return (
               <Link key={mem.id} href={`/members/${mem.id}`}
                 className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 transition hover:border-border-strong">
@@ -66,6 +79,9 @@ export default function DashboardPage() {
               </Link>
             );
           })}
+          {riskInsights.length === 0 && (
+            <p className="text-[13px] text-faint">No hay socios en riesgo detectados.</p>
+          )}
         </div>
       </Card>
     </div>

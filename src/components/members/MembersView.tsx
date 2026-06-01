@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FilterChips } from "@/components/ui/FilterChips";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/Button";
+import { Upload, UserPlus } from "lucide-react";
 import { statusLabel, statusTone, levelLabel, formatRelative, initials } from "@/lib/formatters";
 import type { Member } from "@/types";
 
@@ -64,6 +65,7 @@ export function MembersView() {
   }
 
   const coachOpts = [{ value: "", label: "Todos" }, ...(coaches.data ?? []).map((c) => ({ value: c.id, label: c.userName ?? c.id }))];
+  const hasFilters = !!(status || risk || coach || day || search);
 
   return (
     <div>
@@ -83,9 +85,29 @@ export function MembersView() {
       {members.loading ? (
         <LoadingState rows={6} />
       ) : members.error ? (
-        <ErrorState description={members.error} action={<Button variant="ghost" onClick={members.reload}>Reintentar</Button>} />
+        <ErrorState
+          description="No hemos podido cargar los socios. Reintenta o revisa la conexión."
+          action={<Button variant="ghost" onClick={members.reload}>Reintentar</Button>}
+        />
       ) : !members.data || members.data.length === 0 ? (
-        <EmptyState title="Sin socios con estos filtros" description="Prueba a relajar los filtros o limpiar la búsqueda." />
+        hasFilters ? (
+          <EmptyState
+            icon={UserPlus}
+            title="Sin socios con estos filtros"
+            description="Prueba a relajar los filtros o limpiar la búsqueda."
+          />
+        ) : (
+          <EmptyState
+            icon={UserPlus}
+            title="Aún no hay socios importados"
+            description="Sube un CSV con los datos de tus socios actuales para empezar a detectar riesgos de onboarding."
+            action={
+              <Link href="/import/members">
+                <Button icon={Upload}>Importar socios desde CSV</Button>
+              </Link>
+            }
+          />
+        )
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">

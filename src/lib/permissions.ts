@@ -6,7 +6,7 @@ import type { CurrentUser } from "./auth";
 import type { UserRole, ID } from "../types";
 
 export type Action =
-  | "member.read" | "member.create" | "member.update" | "member.assignCoach"
+  | "member.read" | "member.create" | "member.update" | "member.assignCoach" | "member.import"
   | "task.read" | "task.create" | "task.complete"
   | "alert.read" | "alert.resolve"
   | "settings.read" | "settings.update"
@@ -25,7 +25,7 @@ export interface ResourceRef {
 /** Matriz base de permisos por rol (sin matices de ownership). */
 const MATRIX: Record<UserRole, Set<Action>> = {
   owner: new Set<Action>([
-    "member.read", "member.create", "member.update", "member.assignCoach",
+    "member.read", "member.create", "member.update", "member.assignCoach", "member.import",
     "task.read", "task.create", "task.complete",
     "alert.read", "alert.resolve",
     "settings.read", "settings.update",
@@ -33,7 +33,7 @@ const MATRIX: Record<UserRole, Set<Action>> = {
     "message.use", "coach.create",
   ]),
   manager: new Set<Action>([
-    "member.read", "member.create", "member.update", "member.assignCoach",
+    "member.read", "member.create", "member.update", "member.assignCoach", "member.import",
     "task.read", "task.create", "task.complete",
     "alert.read", "alert.resolve",
     "settings.read",                  // puede ver, NO settings.update (config crítica/billing)

@@ -10,8 +10,8 @@ export function GET(req: NextRequest) {
     const ctx = getRequestContext(req);
     // Coach recibe su digest operativo; owner/manager el informe completo.
     const report = ctx.user.role === "coach"
-      ? reportService.coachDigest(ctx)
-      : reportService.advanced(ctx);
+      ? await reportService.coachDigest(ctx)
+      : await reportService.advanced(ctx);
     return ok(report);
   });
 }

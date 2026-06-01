@@ -6,5 +6,5 @@ import { auditService } from "@/server/services/audit.service";
 export const dynamic = "force-dynamic";
 
 export function GET(req: NextRequest) {
-  return handle(async () => ok(auditService.recent(getRequestContext(req), 20)));
+  return handle(async () => ok(await auditService.recent(getRequestContext(req), 20)));
 }

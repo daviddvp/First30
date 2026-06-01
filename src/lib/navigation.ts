@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, UserPlus, AlertTriangle, Users,
-  CheckSquare, MessageSquare, FileText, Settings, type LucideIcon,
+  CheckSquare, MessageSquare, FileText, Settings, Upload, type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = {
@@ -21,6 +21,7 @@ export const NAV: NavItem[] = [
   { label: "Tareas", href: "/tasks", icon: CheckSquare, badge: "8" },
   { label: "Mensajes", href: "/messages", icon: MessageSquare },
   { label: "Informe semanal", href: "/reports/weekly", icon: FileText },
+  { label: "Importar socios", href: "/import/members", icon: Upload },
   { label: "Configuración", href: "/settings", icon: Settings },
 ];
 

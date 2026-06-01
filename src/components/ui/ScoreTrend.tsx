@@ -12,7 +12,7 @@ export function ScoreTrend({ points }: { points: ScorePoint[] }) {
   const area = `${path} L ${xs(points.length - 1)} ${H - P} L ${xs(0)} ${H - P} Z`;
   return (
     <Card className="p-4">
-      <h3 className="text-[14px] font-bold">Evolución del Activation Score</h3>
+      <h3 className="text-[14px] font-bold">Evolución de activación</h3>
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" preserveAspectRatio="none">
         <path d={area} fill="var(--accent-soft)" />
         <path d={path} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />

@@ -3,7 +3,8 @@
 
 export type ErrorCode =
   | "VALIDATION_ERROR" | "NOT_FOUND" | "UNAUTHORIZED" | "FORBIDDEN"
-  | "CONFLICT" | "RULE_VIOLATION" | "INTERNAL";
+  | "CONFLICT" | "RULE_VIOLATION" | "INTERNAL"
+  | "TENANT_SCOPE_ERROR" | "DATABASE_ERROR" | "JOB_UNAUTHORIZED";
 
 export class AppError extends Error {
   constructor(
@@ -40,5 +41,20 @@ export class ForbiddenError extends AppError {
 export class RuleViolationError extends AppError {
   constructor(message: string) {
     super("RULE_VIOLATION", message, 409);
+  }
+}
+export class TenantScopeError extends AppError {
+  constructor(message = "Acceso fuera del scope de la organización") {
+    super("TENANT_SCOPE_ERROR", message, 403);
+  }
+}
+export class DatabaseError extends AppError {
+  constructor(message = "Error de base de datos", details?: unknown) {
+    super("DATABASE_ERROR", message, 500, details);
+  }
+}
+export class JobUnauthorizedError extends AppError {
+  constructor(message = "Job secret inválido o ausente") {
+    super("JOB_UNAUTHORIZED", message, 401);
   }
 }

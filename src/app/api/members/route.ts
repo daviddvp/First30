@@ -10,13 +10,13 @@ export function GET(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const q = memberListQuerySchema.parse(Object.fromEntries(req.nextUrl.searchParams));
-    return ok(memberService.list(ctx, q));
+    return ok(await memberService.list(ctx, q));
   });
 }
 export function POST(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const input = createMemberSchema.parse(await req.json());
-    return ok(memberService.create(ctx, input), 201);
+    return ok(await memberService.create(ctx, input), 201);
   });
 }

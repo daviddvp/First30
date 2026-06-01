@@ -29,7 +29,8 @@ export type OnboardingRuleType =
   | "no_return_7d" | "low_attendance_14d" | "no_coach" | "checkin_no_response";
 export type AuditAction =
   | "created" | "updated" | "deleted" | "assigned_coach" | "resolved_alert"
-  | "sent_message" | "completed_task" | "generated_report";
+  | "sent_message" | "completed_task" | "generated_report"
+  | "job_run" | "score_updated" | "contacted";
 
 export interface Organization {
   id: ID;
@@ -114,13 +115,15 @@ export interface Task {
   id: ID;
   organizationId: ID;
   memberId: ID | null;
-  assignedToUserId: ID;
+  assignedToUserId: ID | null;
   title: string;
   description: string | null;
   priority: Priority;
   status: TaskStatus;
   dueDate: ISODate | null;
   completedAt: ISODate | null;
+  /** Clave lógica para deduplicación del job de reglas. */
+  ruleKey: string | null;
   createdAt: ISODate;
   updatedAt: ISODate;
 }
@@ -132,11 +135,15 @@ export interface RiskAlert {
   riskLevel: RiskLevel;
   reason: string;
   daysSinceLastAttendance: number | null;
-  suggestedAction: string;
+  suggestedAction: string | null;
   suggestedMessage: ID | null; // -> MessageTemplate.id
   priority: Priority;
   status: AlertStatus;
   resolvedAt: ISODate | null;
+  resolvedNote: string | null;
+  snoozeUntil: ISODate | null;
+  /** Clave lógica para deduplicación del job de reglas. */
+  ruleKey: string | null;
   createdAt: ISODate;
   updatedAt: ISODate;
 }

@@ -1,10 +1,10 @@
-/* Compone el detalle enriquecido de un socio para la ficha: insight (motores),
-   actividad reciente, historial de mensajes, próxima clase y resumen simulado.
-   Toda la lógica vive aquí; la UI solo pinta el resultado. */
-import { orgScope } from "@/data/mock-db";
+import { prisma } from "@/lib/db";
+import { memberRepository } from "../repositories/member.repository";
+import { messageRepository } from "../repositories/message.repository";
+import { auditRepository } from "../repositories/audit.repository";
 import { insightService } from "./insight.service";
 import { assertCan } from "@/lib/permissions";
-import { scopedView } from "@/lib/tenant-scope";
+import { canSeeMember, ownerCoachOf } from "@/lib/tenant-scope";
 import { NotFoundError } from "@/lib/errors";
 import { firstName } from "@/lib/formatters";
 import type { RequestContext } from "@/lib/auth";
@@ -30,7 +30,6 @@ export interface MemberDetail {
   aiSummary: string;
 }
 
-/** Serie sintética de evolución del score, anclada al score actual. */
 function buildScoreHistory(current: number, day: number): ScorePoint[] {
   const marks = [0, 3, 7, 14, 21, 30].filter((d) => d <= Math.max(day, 1));
   return marks.map((d, i) => {
@@ -63,33 +62,46 @@ function buildAiSummary(name: string, insight: MemberInsight, atts: number): str
 }
 
 export const memberDetailService = {
-  forMember(ctx: RequestContext, memberId: ID): MemberDetail {
-    const view = scopedView(ctx);
-    assertCan(ctx.user, "member.read", { ownerCoachId: view.ownerCoachOf(memberId) });
-    if (!view.canSeeMember(memberId)) throw new NotFoundError("Socio");
+  async forMember(ctx: RequestContext, memberId: ID): Promise<MemberDetail> {
+    const member = await memberRepository.findById(ctx.organizationId, memberId);
+    if (!member) throw new NotFoundError("Socio");
 
-    const scope = orgScope(ctx.organizationId);
-    const member = scope.member(memberId)!;
-    const insight = insightService.forMember(ctx.organizationId, memberId);
-    const coach = scope.coachOfMember(memberId);
-    const coachName = coach ? scope.userOfCoach(coach.id)?.name ?? null : null;
+    assertCan(ctx.user, "member.read", { ownerCoachId: ownerCoachOf(member.assignedCoachId) });
+    if (!canSeeMember(ctx, member.assignedCoachId)) throw new NotFoundError("Socio");
 
-    const attendances = scope.attendancesByMember(memberId);
-    const checkIns = scope.checkInsByMember(memberId);
-    const messages = scope.messageLogsByMember(memberId)
-      .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
-    const audit = scope.auditLogs()
-      .filter((a) => a.entityId === memberId)
-      .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    const [insight, messages, auditLogs, attendanceRows, checkInRows, coachUser] = await Promise.all([
+      insightService.forMember(ctx.organizationId, memberId),
+      messageRepository.logsByMember(ctx.organizationId, memberId),
+      auditRepository.listByEntity(ctx.organizationId, "Member", memberId),
+      prisma.attendance.findMany({ where: { organizationId: ctx.organizationId, memberId }, orderBy: { classDate: "desc" } }),
+      prisma.checkIn.findMany({ where: { organizationId: ctx.organizationId, memberId }, orderBy: { createdAt: "desc" } }),
+      member.assignedCoachId
+        ? prisma.user.findFirst({ where: { coachProfile: { id: member.assignedCoachId }, organizationId: ctx.organizationId }, select: { name: true } })
+        : Promise.resolve(null),
+    ]);
+
+    const attendances: Attendance[] = attendanceRows.map((a) => ({
+      id: a.id, organizationId: a.organizationId, memberId: a.memberId,
+      classDate: a.classDate.toISOString(), classType: a.classType ?? "WOD",
+      coachId: a.coachId ?? "", notes: a.notes, createdAt: a.createdAt.toISOString(),
+    }));
+    const checkIns: CheckIn[] = checkInRows.map((c) => ({
+      id: c.id, organizationId: c.organizationId, memberId: c.memberId,
+      coachId: c.coachId ?? null, day: c.day,
+      status: c.status as CheckIn["status"],
+      sentiment: c.sentiment as CheckIn["sentiment"],
+      notes: c.notes, createdAt: c.createdAt.toISOString(),
+    }));
 
     const activity: ActivityItem[] = [
-      ...attendances.map((a: Attendance) => ({ id: a.id, kind: "attendance" as const, label: `Asistió a ${a.classType}`, date: a.classDate })),
-      ...checkIns.map((c: CheckIn) => ({ id: c.id, kind: "checkin" as const, label: `Check-in día ${c.day} · ${c.status}`, date: c.createdAt })),
-      ...messages.map((m: MessageLog) => ({ id: m.id, kind: "message" as const, label: `Mensaje ${m.status === "sent" ? "enviado" : "copiado"}`, date: m.createdAt })),
+      ...attendances.map((a) => ({ id: a.id, kind: "attendance" as const, label: `Asistió a ${a.classType}`, date: a.classDate })),
+      ...checkIns.map((c) => ({ id: c.id, kind: "checkin" as const, label: `Check-in día ${c.day} · ${c.status}`, date: c.createdAt })),
+      ...messages.map((m) => ({ id: m.id, kind: "message" as const, label: `Mensaje ${m.status === "sent" ? "enviado" : "copiado"}`, date: m.createdAt })),
     ].sort((a, b) => +new Date(b.date) - +new Date(a.date)).slice(0, 8);
 
     return {
-      insight, coachName, activity, messages, audit,
+      insight, coachName: coachUser?.name ?? null,
+      activity, messages, audit: auditLogs,
       scoreHistory: buildScoreHistory(insight.score.score, member.onboardingDay),
       recommendedClass: recommendClass(member.mainGoal, member.level),
       aiSummary: buildAiSummary(member.fullName, insight, attendances.length),

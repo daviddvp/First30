@@ -186,7 +186,7 @@ const tasks: Task[] = T.map(([org, member, assignee, title, priority, status, du
   const id = `tsk_${String(++taskSeq).padStart(2, "0")}`;
   return {
     id, organizationId: org, memberId: member, assignedToUserId: assignee, title,
-    description: null, priority, status,
+    description: null, priority, status, ruleKey: null,
     dueDate: status === "cancelled" ? null : dueGap === null ? null : isoDaysAhead(dueGap),
     completedAt: status === "completed" ? isoDaysAgo(compGap ?? 1) : null,
     createdAt: isoDaysAgo((compGap ?? 0) + 5), updatedAt: TS,
@@ -219,6 +219,7 @@ const alerts: RiskAlert[] = A.map(([org, member, risk, reason, action, tplId, pr
     id, organizationId: org, memberId: member, riskLevel: risk, reason,
     daysSinceLastAttendance: dsla, suggestedAction: action, suggestedMessage: tplId,
     priority, status, resolvedAt: status === "resolved" ? isoDaysAgo(resGap ?? 1) : null,
+    resolvedNote: null, snoozeUntil: null, ruleKey: null,
     createdAt: isoDaysAgo((resGap ?? 0) + 3), updatedAt: TS,
   };
 });

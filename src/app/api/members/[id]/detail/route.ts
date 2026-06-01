@@ -6,5 +6,5 @@ import { memberDetailService } from "@/server/services/member-detail.service";
 export const dynamic = "force-dynamic";
 
 export function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  return handle(async () => ok(memberDetailService.forMember(getRequestContext(req), params.id)));
+  return handle(async () => ok(await memberDetailService.forMember(getRequestContext(req), params.id)));
 }

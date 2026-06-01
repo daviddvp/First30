@@ -9,6 +9,6 @@ export function POST(req: NextRequest) {
   return handle(async () => {
     const ctx = getRequestContext(req);
     const { templateId, memberId } = copyMessageSchema.parse(await req.json());
-    return ok(messageService.copy(ctx, templateId, memberId));
+    return ok(await messageService.copy(ctx, templateId, memberId));
   });
 }

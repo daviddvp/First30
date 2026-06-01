@@ -5,5 +5,5 @@ import { reportService } from "@/server/services/report.service";
 
 export const dynamic = "force-dynamic";
 export function POST(req: NextRequest) {
-  return handle(async () => ok(reportService.generate(getRequestContext(req)), 201));
+  return handle(async () => ok(await reportService.generate(getRequestContext(req)), 201));
 }

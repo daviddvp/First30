@@ -6,5 +6,5 @@ import { memberService } from "@/server/services/member.service";
 export const dynamic = "force-dynamic";
 
 export function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  return handle(async () => ok(memberService.markContacted(getRequestContext(req), params.id)));
+  return handle(async () => ok(await memberService.markContacted(getRequestContext(req), params.id)));
 }
